@@ -426,8 +426,8 @@ public class MatrixGame {
         }
         
         System.out.println("Estadísticas:");
-        System.out.println("Turnos jugados: " + String.format("%-19d", turnoActual) + "║");
-        System.out.println("Agentes activos: " + String.format("%-18d", contarAgentesVivos()) + "║");
+        System.out.println("Turnos jugados: " + String.format("%-19d", turnoActual));
+        System.out.println("Agentes activos: " + String.format("%-18d", contarAgentesVivos()));
         
         System.out.println("Gracias por jugar. ¡Hasta la próxima!");
     }
