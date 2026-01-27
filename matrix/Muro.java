@@ -8,7 +8,7 @@ public class Muro extends Objeto {
     
     @Override
     public void colocarEnTablero(char[][] tablero) {
-        tablero[posX][posY] = this.simbolo;
+        tablero[posY][posX] = this.simbolo;
     }
     
     @Override

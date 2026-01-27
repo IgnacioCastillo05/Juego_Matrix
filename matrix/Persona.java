@@ -54,7 +54,7 @@ public abstract class Persona implements Comportamiento, Runnable {
      */
     public void colocarEnTablero(char[][] tablero) {
         if (vivo) {
-            tablero[posX][posY] = this.simbolo;
+            tablero[posY][posX] = this.simbolo;
         }
     }
     

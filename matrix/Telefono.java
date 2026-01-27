@@ -11,7 +11,7 @@ public class Telefono extends Objeto {
     @Override
     public void colocarEnTablero(char[][] tablero) {
         if (!usado) {
-            tablero[posX][posY] = this.simbolo;
+            tablero[posY][posX] = this.simbolo;
         }
     }
     

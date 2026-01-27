@@ -6,6 +6,7 @@ public class Agente extends Persona {
     private Neo neo;
     private List<Agente> otrosAgentes;
     private List<Muro> muros;
+    private List<Telefono> telefonos;
     private CyclicBarrier barreraCalculo;
     private CyclicBarrier barreraAplicacion;
     private Object lockTablero;
@@ -19,23 +20,25 @@ public class Agente extends Persona {
     private boolean movimientoCalculado;
     
     // Mapa compartido de posiciones reservadas
-    private Map<String, Integer> posicionesReservadas;  // ← NUEVO
+    private Map<String, Integer> posicionesReservadas;
     
     public Agente(int posX, int posY, Neo neo, List<Agente> otrosAgentes,
-                  List<Muro> muros, CyclicBarrier barreraCalculo,
+                  List<Muro> muros, List<Telefono> telefonos,
+                  CyclicBarrier barreraCalculo,
                   CyclicBarrier barreraAplicacion, Object lockTablero,
-                  Map<String, Integer> posicionesReservadas) {  // ← NUEVO PARÁMETRO
+                  Map<String, Integer> posicionesReservadas) {
         super(posX, posY, 'A', "Agente-" + (++contadorAgentes));
         this.id = contadorAgentes;
         this.neo = neo;
         this.otrosAgentes = otrosAgentes;
         this.muros = muros;
+        this.telefonos = telefonos;
         this.barreraCalculo = barreraCalculo;
         this.barreraAplicacion = barreraAplicacion;
         this.lockTablero = lockTablero;
         this.juegoActivo = true;
         this.movimientoCalculado = false;
-        this.posicionesReservadas = posicionesReservadas;  // ← NUEVO
+        this.posicionesReservadas = posicionesReservadas;
     }
     
     public int getId() {
@@ -50,18 +53,14 @@ public class Agente extends Persona {
     public void run() {
         try {
             while (juegoActivo && vivo) {
-                // ===== FASE 1: CÁLCULO =====
                 movimientoCalculado = calcularProximoMovimiento();
-                
-                // Espera a que todos terminen de calcular
+
                 barreraCalculo.await();
                 
                 if (!juegoActivo || !vivo) break;
-                
-                // ===== FASE 2: APLICACIÓN =====
+
                 synchronized(lockTablero) {
                     if (movimientoCalculado) {
-                        // Liberar la posición anterior
                         String claveAnterior = posX + "," + posY;
                         synchronized(posicionesReservadas) {
                             posicionesReservadas.remove(claveAnterior);
@@ -73,11 +72,9 @@ public class Agente extends Persona {
                                          posX + ", " + posY + ")");
                     }
                 }
-                
-                // Espera a que todos terminen de moverse
+ 
                 barreraAplicacion.await();
-                
-                // ===== FASE 3: VERIFICACIÓN =====
+
                 verificarCaptura();
                 
                 if (!juegoActivo) break;
@@ -96,7 +93,7 @@ public class Agente extends Persona {
     }
     
     /**
-     * FASE 1: Calcula el próximo movimiento
+     * CALCULA EL PRÓXIMO MOVIMIENTO CON COORDINACIÓN ENTRE AGENTES
      */
     private boolean calcularProximoMovimiento() {
         if (!neo.isVivo()) {
@@ -106,34 +103,26 @@ public class Agente extends Persona {
         int[] siguientePaso = bfsConCoordinacion();
         
         if (siguientePaso != null) {
-            // Intentar reservar la posición
             String clave = siguientePaso[0] + "," + siguientePaso[1];
             
             synchronized(posicionesReservadas) {
-                // Si la posición ya está reservada por otro agente
                 if (posicionesReservadas.containsKey(clave)) {
-                    // Buscar una posición alternativa
                     int[] alternativa = buscarPosicionAlternativa();
                     if (alternativa != null) {
                         siguientePaso = alternativa;
                         clave = alternativa[0] + "," + alternativa[1];
                     } else {
-                        // No hay alternativa, quedarse en el mismo lugar
                         proximaX = posX;
                         proximaY = posY;
                         return false;
                     }
                 }
-                
-                // Reservar la posición
                 posicionesReservadas.put(clave, id);
                 proximaX = siguientePaso[0];
                 proximaY = siguientePaso[1];
             }
-            
             return true;
         }
-        
         proximaX = posX;
         proximaY = posY;
         return false;
@@ -146,29 +135,26 @@ public class Agente extends Persona {
         final int TAMANIO = 10;
         int[] dx = {-1, 1, 0, 0};
         int[] dy = {0, 0, -1, 1};
-        
-        // Probar las 4 direcciones alrededor de la posición actual
+
         for (int i = 0; i < 4; i++) {
             int nx = posX + dx[i];
             int ny = posY + dy[i];
-            
             if (!posicionValida(nx, ny, TAMANIO)) continue;
             if (hayMuro(nx, ny)) continue;
+            if (hayTelefono(nx, ny)) continue;  
             
             String clave = nx + "," + ny;
             synchronized(posicionesReservadas) {
                 if (!posicionesReservadas.containsKey(clave)) {
-                    // Posición válida y disponible
                     return new int[]{nx, ny};
                 }
             }
         }
-        
-        return null; // No hay alternativa
+        return null;
     }
     
     /**
-     * FASE 3: Verifica si capturó a Neo
+     * Verifica si el agente ha capturado a Neo
      */
     private void verificarCaptura() {
         if (posX == neo.getPosX() && posY == neo.getPosY() && neo.isVivo()) {
@@ -184,6 +170,18 @@ public class Agente extends Persona {
                 }
             }
         }
+    }
+
+    /**
+     * Verifica si hay un teléfono en la posición dada
+     */
+    private boolean hayTelefono(int x, int y) {
+        for (Telefono telefono : telefonos) {
+            if (!telefono.isUsado() && telefono.getPosX() == x && telefono.getPosY() == y) {
+                return true;
+            }
+        }
+        return false;
     }
     
     /**
@@ -213,11 +211,9 @@ public class Agente extends Persona {
             int[] actual = cola.poll();
             int x = actual[0];
             int y = actual[1];
-            
             if (x == neoX && y == neoY) {
                 return reconstruirPrimerPaso(padre, neoX, neoY);
             }
-            
             for (int[] dir : direccionesOrdenadas) {
                 int nx = x + dir[0];
                 int ny = y + dir[1];
@@ -225,22 +221,20 @@ public class Agente extends Persona {
                 if (!posicionValida(nx, ny, TAMANIO) || visitado[nx][ny]) {
                     continue;
                 }
-                
                 if (hayMuro(nx, ny)) {
                     continue;
                 }
-                
-                // Permite moverse a la posición de Neo, pero no a la de otros agentes
+                if (hayTelefono(nx, ny)) {
+                    continue;
+                }
                 if (hayOtroAgente(nx, ny) && !(nx == neoX && ny == neoY)) {
                     continue;
                 }
-                
                 visitado[nx][ny] = true;
                 padre[nx][ny] = x * TAMANIO + y;
                 cola.offer(new int[]{nx, ny});
             }
         }
-        
         return null;
     }
     

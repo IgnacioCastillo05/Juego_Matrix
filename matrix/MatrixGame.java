@@ -40,14 +40,25 @@ public class MatrixGame {
      */
     public void iniciar() {
         mostrarBienvenida();
-        
-        // 1. Configuración inicial del tablero
+ 
         configurarJuego();
-        
-        // 2. Crear mapa de posiciones reservadas (compartido entre agentes)
-        Map<String, Integer> posicionesReservadas = new ConcurrentHashMap<>();  // ← NUEVO
-        
-        // 3. Crear las barreras cíclicas
+
+        inicializarSistemaConcurrencia();
+
+        mostrarEstadoInicial();
+
+        ejecutarSimulacion();
+  
+        mostrarResultadoFinal();
+        scanner.close();
+    }
+
+    /**
+     * Inicializa las barreras cíclicas y recrea los personajes con las referencias correctas
+     */
+    private void inicializarSistemaConcurrencia() {
+        Map<String, Integer> posicionesReservadas = new ConcurrentHashMap<>();
+
         int numParticipantes = 1 + agentes.size();
         
         barreraCalculo = new CyclicBarrier(numParticipantes, () -> {
@@ -55,20 +66,17 @@ public class MatrixGame {
         });
         
         barreraAplicacion = new CyclicBarrier(numParticipantes, () -> {
-            // Limpiar posiciones reservadas del turno anterior
-            posicionesReservadas.clear();  // ← NUEVO
+            posicionesReservadas.clear();
             
             turnoActual++;
             System.out.println("--- Todos aplicaron su movimiento ---");
             System.out.println("\n========== TURNO " + turnoActual + " ==========");
             imprimirTablero();
         });
-        
-        // 4. Asignar barreras a Neo
+
         neo = new Neo(neo.getPosX(), neo.getPosY(), telefonos, agentes, muros,
                     barreraCalculo, barreraAplicacion, lockTablero);
-        
-        // 5. Asignar barreras y mapa compartido a todos los agentes
+
         for (int i = 0; i < agentes.size(); i++) {
             Agente agenteViejo = agentes.get(i);
             Agente agenteNuevo = new Agente(
@@ -77,20 +85,32 @@ public class MatrixGame {
                 neo, 
                 agentes, 
                 muros,
+                telefonos,
                 barreraCalculo,
                 barreraAplicacion,
                 lockTablero,
-                posicionesReservadas  // ← NUEVO PARÁMETRO
+                posicionesReservadas
             );
             agentes.set(i, agenteNuevo);
         }
-        
+    }
+
+    /**
+     * Muestra el tablero inicial y espera confirmación del usuario
+     */
+    private void mostrarEstadoInicial() {
         System.out.println("\n========== TABLERO INICIAL ==========");
         imprimirTablero();
         
         System.out.println("\nPresiona ENTER para iniciar la simulación...");
         scanner.nextLine();
-        
+    }
+
+    /**
+     * Ejecuta la simulación del juego iniciando y coordinando todos los hilos
+     */
+    private void ejecutarSimulacion() {
+        // Iniciar los hilos
         Thread hiloNeo = new Thread(neo);
         List<Thread> hilosAgentes = new ArrayList<>();
         
@@ -101,48 +121,39 @@ public class MatrixGame {
             hilosAgentes.add(hiloAgente);
             hiloAgente.start();
         }
-
+        
         try {
-            while (neo.isVivo() && !neo.isGano()) {
-                Thread.sleep(100);
-            }
-            
-            // El juego terminó, dar tiempo para últimos mensajes
-            Thread.sleep(1000);
-            
-            // Resetear las barreras para liberar hilos atrapados
-            barreraCalculo.reset();
-            barreraAplicacion.reset();
-            
-            // Interrumpir todos los hilos
-            hiloNeo.interrupt();
-            for (Thread hilo : hilosAgentes) {
-                hilo.interrupt();
-            }
-            
-            // Esperar a que terminen
-            hiloNeo.join(1000);
-            for (Thread hilo : hilosAgentes) {
-                hilo.join(500);
-            }
-            
+            monitorerarJuego(hiloNeo, hilosAgentes);
         } catch (InterruptedException e) {
             System.out.println("El juego fue interrumpido");
         } catch (Exception e) {
-            System.out.println("Error en la ejecución del juego");
+            System.out.println("Error en la ejecución del juego: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Monitorea el estado del juego y maneja la finalización de los hilos
+     */
+    private void monitorerarJuego(Thread hiloNeo, List<Thread> hilosAgentes) 
+            throws InterruptedException {
+        while (neo.isVivo() && !neo.isGano()) {
+            Thread.sleep(100);
+        }
+        
+        Thread.sleep(1000);
+
+        barreraCalculo.reset();
+        barreraAplicacion.reset();
+
+        hiloNeo.interrupt();
+        for (Thread hilo : hilosAgentes) {
+            hilo.interrupt();
         }
 
-        try {
-            hiloNeo.join();
-            for (Thread hilo : hilosAgentes) {
-                hilo.join();
-            }
-        } catch (InterruptedException e) {
-            System.out.println("El juego fue interrumpido");
+        hiloNeo.join(1000);
+        for (Thread hilo : hilosAgentes) {
+            hilo.join(500);
         }
-
-        mostrarResultadoFinal();
-        scanner.close();
     }
     
     /**
@@ -157,11 +168,7 @@ public class MatrixGame {
         List<int[]> posicionesOcupadas = new ArrayList<>();
         posicionesOcupadas.add(posNeo);
         
-        System.out.println("\n=== CONFIGURACIÓN DE TELÉFONOS ===");
-        for (int i = 1; i <= 2; i++) {
-            int[] posTel = pedirPosicionUnica("Teléfono " + i, posicionesOcupadas);
-            telefonos.add(new Telefono(posTel[0], posTel[1]));
-        }
+        generarTelefonosAleatorios(posicionesOcupadas);
 
         generarMurosAleatorios();
 
@@ -169,7 +176,7 @@ public class MatrixGame {
         
         System.out.println("\n✓ Configuración completada");
         System.out.println("  - Neo: (" + neo.getPosX() + ", " + neo.getPosY() + ")");
-        System.out.println("  - Teléfonos: " + telefonos.size());
+        System.out.println("  - Teléfono(s): " + telefonos.size());
         System.out.println("  - Muros: " + muros.size());
         System.out.println("  - Agentes: " + agentes.size());
     }
@@ -223,6 +230,46 @@ public class MatrixGame {
             }
         }
     }
+
+    /**
+     * Genera teléfonos en posiciones aleatorias
+     */
+    private void generarTelefonosAleatorios(List<int[]> posicionesOcupadas) {
+        Random rand = new Random();
+        int cantidadTelefonos = rand.nextInt(2) + 1;
+        
+        System.out.println("\n=== GENERANDO TELÉFONOS ALEATORIOS ===");
+        System.out.println("Cantidad de teléfonos a generar: " + cantidadTelefonos);
+        
+        int telefonosGenerados = 0;
+        int intentos = 0;
+        int maxIntentos = 100;
+        
+        while (telefonosGenerados < cantidadTelefonos && intentos < maxIntentos) {
+            int x = rand.nextInt(TAMANIO);
+            int y = rand.nextInt(TAMANIO);
+            
+            // Verifica que la posición no esté ocupada
+            boolean ocupada = false;
+            for (int[] pos : posicionesOcupadas) {
+                if (pos[0] == x && pos[1] == y) {
+                    ocupada = true;
+                    break;
+                }
+            }
+            if (!ocupada) {
+                telefonos.add(new Telefono(x, y));
+                posicionesOcupadas.add(new int[]{x, y});
+                System.out.println("  Teléfono " + (telefonosGenerados + 1) + " en (" + x + ", " + y + ")");
+                telefonosGenerados++;
+            }
+            
+            intentos++;
+        }
+        if (telefonosGenerados < cantidadTelefonos) {
+            System.out.println("⚠️  Advertencia: Solo se pudieron generar " + telefonosGenerados + " teléfonos");
+        }
+    }
     
     /**
      * Genera muros en posiciones aleatorias
@@ -256,7 +303,7 @@ public class MatrixGame {
      */
     private void generarAgentesAleatorios() {
         Random rand = new Random();
-        int cantidadAgentes = 6;
+        int cantidadAgentes = 4;
         
         System.out.println("\n=== GENERANDO AGENTES ALEATORIOS ===");
         System.out.println("Cantidad de agentes a generar: " + cantidadAgentes);
@@ -271,9 +318,9 @@ public class MatrixGame {
             
             if (!posicionOcupada(x, y)) {
                 // Creamos un agente temporal (luego se recreará con las barreras)
-                Agente agente = new Agente(x, y, neo, agentes, muros,
-                                        null, null, lockTablero, null);  // ← null temporal
-                agentes.add(agente);
+                Agente agente = new Agente(x, y, neo, agentes, muros, telefonos,
+                                      null, null, lockTablero, null);
+            agentes.add(agente);
                 System.out.println("  Agente-" + (agentesGenerados + 1) + " en (" + x + ", " + y + ")");
                 agentesGenerados++;
             }
@@ -319,27 +366,27 @@ public class MatrixGame {
             Arrays.fill(tablero[i], '.');
         }
         
-        // Colocar teléfonos
+        // Colocar teléfonos - CAMBIO: [y][x] en lugar de [x][y]
         for (Telefono tel : telefonos) {
             if (!tel.isUsado()) {
-                tel.colocarEnTablero(tablero);
+                tablero[tel.getPosY()][tel.getPosX()] = tel.getSimbolo();
             }
         }
         
-        // Colocar muros
+        // Colocar muros - CAMBIO: [y][x]
         for (Muro muro : muros) {
-            muro.colocarEnTablero(tablero);
+            tablero[muro.getPosY()][muro.getPosX()] = muro.getSimbolo();
         }
         
-        // Colocar Neo PRIMERO (si está vivo)
+        // Colocar Neo PRIMERO (si está vivo) - CAMBIO: [y][x]
         if (neo.isVivo()) {
-            neo.colocarEnTablero(tablero);
+            tablero[neo.getPosY()][neo.getPosX()] = neo.getSimbolo();
         }
         
-        // Colocar agentes AL FINAL (para que tengan prioridad visual si capturan a Neo)
+        // Colocar agentes AL FINAL - CAMBIO: [y][x]
         for (Agente agente : agentes) {
             if (agente.isVivo()) {
-                agente.colocarEnTablero(tablero);
+                tablero[agente.getPosY()][agente.getPosX()] = agente.getSimbolo();
             }
         }
         
