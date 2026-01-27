@@ -64,17 +64,4 @@ public abstract class Persona implements Comportamiento, Runnable {
     protected boolean posicionValida(int x, int y, int tamaño) {
         return x >= 0 && x < tamaño && y >= 0 && y < tamaño;
     }
-    
-    /**
-     * Método abstracto que cada clase hija implementará
-     * Este método contendrá la lógica del hilo
-     */
-    @Override
-    public abstract void run();
-    
-    /**
-     * Método de la interfaz Comportamiento que cada clase implementará
-     */
-    @Override
-    public abstract boolean movimiento(char[][] tablero);
 }
