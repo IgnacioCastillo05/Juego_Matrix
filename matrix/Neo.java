@@ -115,10 +115,7 @@ public class Neo extends Persona {
                     gano = true;
                     juegoActivo = false;
                     tel.setUsado(true);
-                    System.out.println("\n╔════════════════════════════════╗");
-                    System.out.println("║  ¡NEO HA LLEGADO AL TELÉFONO!  ║");
-                    System.out.println("║       ¡JUEGO GANADO!            ║");
-                    System.out.println("╚════════════════════════════════╝\n");
+                    System.out.println("¡Neo llegó al teléfono en (" + posX + ", " + posY + ") y escapó de Matrix!");
                 }
                 break;
             }
@@ -186,7 +183,7 @@ public class Neo extends Persona {
                     continue;
                 }
                 
-                int costo = calcularCosto(nx, ny);  // ← Esto ya verifica muros
+                int costo = calcularCosto(nx, ny); 
                 if (costo == Integer.MAX_VALUE) continue;
                 
                 int nuevaDistancia = distancias[x][y] + costo;
@@ -207,16 +204,15 @@ public class Neo extends Persona {
      * Considera muros (infinito) y proximidad a agentes (penalización)
      */
     private int calcularCosto(int x, int y) {
-        // PRIMERO: Verifica si hay un muro - BLOQUEADO TOTALMENTE
         for (Muro muro : muros) {
             if (muro.getPosX() == x && muro.getPosY() == y) {
-                return Integer.MAX_VALUE;  // No se puede pasar por un muro
+                return Integer.MAX_VALUE;
             }
         }
         
-        int costo = 1; // Costo base
+        int costo = 1;
         
-        // SEGUNDO: Penaliza posiciones cercanas a agentes
+
         for (Agente agente : agentes) {
             if (!agente.isVivo()) continue;
             
@@ -224,11 +220,11 @@ public class Neo extends Persona {
                         Math.abs(y - agente.getPosY());
             
             if (distAgente == 0) {
-                return Integer.MAX_VALUE; // Hay un agente ahí
+                return Integer.MAX_VALUE; 
             } else if (distAgente == 1) {
-                costo += 50; // Alta penalización por estar al lado
+                costo += 50;
             } else if (distAgente == 2) {
-                costo += 10; // Penalización moderada
+                costo += 10;
             }
         }
         

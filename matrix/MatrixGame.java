@@ -174,7 +174,7 @@ public class MatrixGame {
 
         generarAgentesAleatorios();
         
-        System.out.println("\n✓ Configuración completada");
+        System.out.println("\nConfiguración completada");
         System.out.println("  - Neo: (" + neo.getPosX() + ", " + neo.getPosY() + ")");
         System.out.println("  - Teléfono(s): " + telefonos.size());
         System.out.println("  - Muros: " + muros.size());
@@ -238,7 +238,6 @@ public class MatrixGame {
         Random rand = new Random();
         int cantidadTelefonos = rand.nextInt(2) + 1;
         
-        System.out.println("\n=== GENERANDO TELÉFONOS ALEATORIOS ===");
         System.out.println("Cantidad de teléfonos a generar: " + cantidadTelefonos);
         
         int telefonosGenerados = 0;
@@ -267,7 +266,7 @@ public class MatrixGame {
             intentos++;
         }
         if (telefonosGenerados < cantidadTelefonos) {
-            System.out.println("⚠️  Advertencia: Solo se pudieron generar " + telefonosGenerados + " teléfonos");
+            System.out.println("Advertencia: Solo se pudieron generar " + telefonosGenerados + " teléfonos");
         }
     }
     
@@ -276,9 +275,8 @@ public class MatrixGame {
      */
     private void generarMurosAleatorios() {
         Random rand = new Random();
-        int cantidadMuros = rand.nextInt(MAX_MUROS) + 1; // Entre 1 y 10 muros
+        int cantidadMuros = rand.nextInt(MAX_MUROS) + 1; 
         
-        System.out.println("\n=== GENERANDO MUROS ALEATORIOS ===");
         System.out.println("Cantidad de muros a generar: " + cantidadMuros);
         
         int murosGenerados = 0;
@@ -305,7 +303,6 @@ public class MatrixGame {
         Random rand = new Random();
         int cantidadAgentes = 4;
         
-        System.out.println("\n=== GENERANDO AGENTES ALEATORIOS ===");
         System.out.println("Cantidad de agentes a generar: " + cantidadAgentes);
         
         int agentesGenerados = 0;
@@ -317,7 +314,6 @@ public class MatrixGame {
             int y = rand.nextInt(TAMANIO);
             
             if (!posicionOcupada(x, y)) {
-                // Creamos un agente temporal (luego se recreará con las barreras)
                 Agente agente = new Agente(x, y, neo, agentes, muros, telefonos,
                                       null, null, lockTablero, null);
             agentes.add(agente);
@@ -412,39 +408,26 @@ public class MatrixGame {
      * Muestra mensaje de bienvenida
      */
     private void mostrarBienvenida() {
-        System.out.println("\n╔════════════════════════════════════════╗");
-        System.out.println("║                                        ║");
-        System.out.println("║         BIENVENIDO A MATRIX            ║");
-        System.out.println("║                                        ║");
-        System.out.println("║  Neo debe llegar al teléfono más       ║");
-        System.out.println("║  cercano evitando a los Agentes        ║");
-        System.out.println("║                                        ║");
-        System.out.println("╚════════════════════════════════════════╝\n");
+        System.out.println("BIENVENIDO A MATRIX");
+        System.out.println("El objetivo es que Neo llegue al teléfono más cercano evitando a los Agentes.");
+        System.out.println("¡Buena suerte!\n");
     }
     
     /**
      * Muestra el resultado final del juego
      */
     private void mostrarResultadoFinal() {
-        System.out.println("\n╔════════════════════════════════════════╗");
-        System.out.println("║          RESULTADO FINAL               ║");
-        System.out.println("╠════════════════════════════════════════╣");
+        System.out.println("RESULTADO FINAL DEL JUEGO");
         
         if (neo.isGano()) {
-            System.out.println("║                                        ║");
-            System.out.println("║       ¡NEO ESCAPÓ DE MATRIX!      ║");
-            System.out.println("║                                        ║");
+            System.out.println("¡ NEO HA LOGRADO ESCAPAR!");
         } else {
-            System.out.println("║                                        ║");
-            System.out.println("║       NEO FUE CAPTURADO           ║");
-            System.out.println("║                                        ║");
+            System.out.println("NEO HA SIDO CAPTURADO POR LOS AGENTES.");
         }
         
-        System.out.println("╠════════════════════════════════════════╣");
-        System.out.println("║  Estadísticas:                         ║");
-        System.out.println("║  - Turnos jugados: " + String.format("%-19d", turnoActual) + "║");
-        System.out.println("║  - Agentes activos: " + String.format("%-18d", contarAgentesVivos()) + "║");
-        System.out.println("╚════════════════════════════════════════╝\n");
+        System.out.println("Estadísticas:");
+        System.out.println("Turnos jugados: " + String.format("%-19d", turnoActual));
+        System.out.println("Agentes activos: " + String.format("%-18d", contarAgentesVivos()));
         
         System.out.println("Gracias por jugar. ¡Hasta la próxima!");
     }
