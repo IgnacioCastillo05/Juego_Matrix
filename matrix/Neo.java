@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 public class Neo extends Persona {
     private List<Telefono> telefonos;
     private List<Agente> agentes;
+    private List<Muro> muros;
     private CyclicBarrier barreraCalculo; 
     private CyclicBarrier barreraAplicacion;
     private Object lockTablero;
@@ -17,11 +18,13 @@ public class Neo extends Persona {
     private boolean movimientoCalculado;
     
     public Neo(int posX, int posY, List<Telefono> telefonos, 
-               List<Agente> agentes, CyclicBarrier barreraCalculo,
+               List<Agente> agentes, List<Muro> muros,  // ← AGREGAR PARÁMETRO
+               CyclicBarrier barreraCalculo,
                CyclicBarrier barreraAplicacion, Object lockTablero) {
         super(posX, posY, 'N', "Neo");
         this.telefonos = telefonos;
         this.agentes = agentes;
+        this.muros = muros;  // ← AGREGAR ESTA LÍNEA
         this.barreraCalculo = barreraCalculo;
         this.barreraAplicacion = barreraAplicacion;
         this.lockTablero = lockTablero;
@@ -65,9 +68,12 @@ public class Neo extends Persona {
 
                 Thread.sleep(500);
             }
-        } catch (InterruptedException | BrokenBarrierException e) {
+        } catch (InterruptedException e) {
+            // El hilo fue interrumpido, terminar limpiamente
             Thread.currentThread().interrupt();
-            System.out.println(nombre + " interrumpido");
+        } catch (BrokenBarrierException e) {
+            // La barrera fue reseteada, el juego terminó
+            Thread.currentThread().interrupt();
         }
     }
     
@@ -111,7 +117,7 @@ public class Neo extends Persona {
                     tel.setUsado(true);
                     System.out.println("\n╔════════════════════════════════╗");
                     System.out.println("║  ¡NEO HA LLEGADO AL TELÉFONO!  ║");
-                    System.out.println("║       ¡JUEGO GANADO! 🎉        ║");
+                    System.out.println("║       ¡JUEGO GANADO!            ║");
                     System.out.println("╚════════════════════════════════╝\n");
                 }
                 break;
@@ -180,7 +186,7 @@ public class Neo extends Persona {
                     continue;
                 }
                 
-                int costo = calcularCosto(nx, ny);
+                int costo = calcularCosto(nx, ny);  // ← Esto ya verifica muros
                 if (costo == Integer.MAX_VALUE) continue;
                 
                 int nuevaDistancia = distancias[x][y] + costo;
@@ -198,22 +204,31 @@ public class Neo extends Persona {
     
     /**
      * Calcula el costo de moverse a una posición
+     * Considera muros (infinito) y proximidad a agentes (penalización)
      */
     private int calcularCosto(int x, int y) {
-        int costo = 1;
+        // PRIMERO: Verifica si hay un muro - BLOQUEADO TOTALMENTE
+        for (Muro muro : muros) {
+            if (muro.getPosX() == x && muro.getPosY() == y) {
+                return Integer.MAX_VALUE;  // No se puede pasar por un muro
+            }
+        }
         
+        int costo = 1; // Costo base
+        
+        // SEGUNDO: Penaliza posiciones cercanas a agentes
         for (Agente agente : agentes) {
             if (!agente.isVivo()) continue;
             
             int distAgente = Math.abs(x - agente.getPosX()) + 
-                           Math.abs(y - agente.getPosY());
+                        Math.abs(y - agente.getPosY());
             
             if (distAgente == 0) {
-                return Integer.MAX_VALUE;
+                return Integer.MAX_VALUE; // Hay un agente ahí
             } else if (distAgente == 1) {
-                costo += 50;
+                costo += 50; // Alta penalización por estar al lado
             } else if (distAgente == 2) {
-                costo += 10;
+                costo += 10; // Penalización moderada
             }
         }
         

@@ -46,30 +46,31 @@ public class MatrixGame {
         // 1. Configuración inicial del tablero
         configurarJuego();
         
-        // 2. Crear las barreras cíclicas
-        // Número de participantes = 1 Neo + cantidad de agentes
+        // 2. Crear mapa de posiciones reservadas (compartido entre agentes)
+        Map<String, Integer> posicionesReservadas = new ConcurrentHashMap<>();  // ← NUEVO
+        
+        // 3. Crear las barreras cíclicas
         int numParticipantes = 1 + agentes.size();
         
-        // La barrera de cálculo espera a que todos calculen su movimiento
         barreraCalculo = new CyclicBarrier(numParticipantes, () -> {
-            // Esta acción se ejecuta cuando todos llegan a la barrera
             System.out.println("\n--- Todos calcularon su movimiento ---");
         });
         
-        // La barrera de aplicación espera a que todos apliquen su movimiento
         barreraAplicacion = new CyclicBarrier(numParticipantes, () -> {
-            // Esta acción se ejecuta cuando todos aplicaron su movimiento
+            // Limpiar posiciones reservadas del turno anterior
+            posicionesReservadas.clear();  // ← NUEVO
+            
             turnoActual++;
             System.out.println("--- Todos aplicaron su movimiento ---");
             System.out.println("\n========== TURNO " + turnoActual + " ==========");
             imprimirTablero();
         });
         
-        // 3. Asignar barreras a Neo
-        neo = new Neo(neo.getPosX(), neo.getPosY(), telefonos, agentes,
-                     barreraCalculo, barreraAplicacion, lockTablero);
+        // 4. Asignar barreras a Neo
+        neo = new Neo(neo.getPosX(), neo.getPosY(), telefonos, agentes, muros,
+                    barreraCalculo, barreraAplicacion, lockTablero);
         
-        // 4. Asignar barreras a todos los agentes
+        // 5. Asignar barreras y mapa compartido a todos los agentes
         for (int i = 0; i < agentes.size(); i++) {
             Agente agenteViejo = agentes.get(i);
             Agente agenteNuevo = new Agente(
@@ -80,19 +81,18 @@ public class MatrixGame {
                 muros,
                 barreraCalculo,
                 barreraAplicacion,
-                lockTablero
+                lockTablero,
+                posicionesReservadas  // ← NUEVO PARÁMETRO
             );
             agentes.set(i, agenteNuevo);
         }
         
-        // 5. Mostrar tablero inicial
         System.out.println("\n========== TABLERO INICIAL ==========");
         imprimirTablero();
         
         System.out.println("\nPresiona ENTER para iniciar la simulación...");
         scanner.nextLine();
         
-        // 6. Iniciar los hilos
         Thread hiloNeo = new Thread(neo);
         List<Thread> hilosAgentes = new ArrayList<>();
         
@@ -103,8 +103,37 @@ public class MatrixGame {
             hilosAgentes.add(hiloAgente);
             hiloAgente.start();
         }
-        
-        // 7. Esperar a que el juego termine
+
+        try {
+            while (neo.isVivo() && !neo.isGano()) {
+                Thread.sleep(100);
+            }
+            
+            // El juego terminó, dar tiempo para últimos mensajes
+            Thread.sleep(1000);
+            
+            // Resetear las barreras para liberar hilos atrapados
+            barreraCalculo.reset();
+            barreraAplicacion.reset();
+            
+            // Interrumpir todos los hilos
+            hiloNeo.interrupt();
+            for (Thread hilo : hilosAgentes) {
+                hilo.interrupt();
+            }
+            
+            // Esperar a que terminen
+            hiloNeo.join(1000);
+            for (Thread hilo : hilosAgentes) {
+                hilo.join(500);
+            }
+            
+        } catch (InterruptedException e) {
+            System.out.println("El juego fue interrumpido");
+        } catch (Exception e) {
+            System.out.println("Error en la ejecución del juego");
+        }
+
         try {
             hiloNeo.join();
             for (Thread hilo : hilosAgentes) {
@@ -113,8 +142,7 @@ public class MatrixGame {
         } catch (InterruptedException e) {
             System.out.println("El juego fue interrumpido");
         }
-        
-        // 8. Mostrar resultado final
+
         mostrarResultadoFinal();
         scanner.close();
     }
@@ -123,24 +151,22 @@ public class MatrixGame {
      * Configura el juego pidiendo posiciones al usuario y generando obstáculos
      */
     private void configurarJuego() {
-        // Pedir posición de Neo
         System.out.println("\n=== CONFIGURACIÓN DE NEO ===");
         int[] posNeo = pedirPosicion("Neo");
-        neo = new Neo(posNeo[0], posNeo[1], telefonos, agentes, 
-                     barreraCalculo, barreraAplicacion, lockTablero);
+        neo = new Neo(posNeo[0], posNeo[1], telefonos, agentes, muros,
+                    barreraCalculo, barreraAplicacion, lockTablero);
         
-        // Pedir posiciones de los 2 teléfonos
+        List<int[]> posicionesOcupadas = new ArrayList<>();
+        posicionesOcupadas.add(posNeo);
+        
         System.out.println("\n=== CONFIGURACIÓN DE TELÉFONOS ===");
         for (int i = 1; i <= 2; i++) {
-            int[] posTel = pedirPosicionUnica("Teléfono " + i, 
-                          Arrays.asList(posNeo));
+            int[] posTel = pedirPosicionUnica("Teléfono " + i, posicionesOcupadas);
             telefonos.add(new Telefono(posTel[0], posTel[1]));
         }
-        
-        // Generar muros aleatorios
+
         generarMurosAleatorios();
-        
-        // Generar agentes aleatorios
+
         generarAgentesAleatorios();
         
         System.out.println("\n✓ Configuración completada");
@@ -165,10 +191,10 @@ public class MatrixGame {
                 if (x >= 0 && x < TAMANIO && y >= 0 && y < TAMANIO) {
                     return new int[]{x, y};
                 } else {
-                    System.out.println("❌ Posición fuera de rango. Intenta de nuevo.");
+                    System.out.println("Posición fuera de rango. Intenta de nuevo.");
                 }
             } catch (NumberFormatException e) {
-                System.out.println("❌ Entrada inválida. Ingresa números entre 0 y 9.");
+                System.out.println("Entrada inválida. Ingresa números entre 0 y 9.");
             }
         }
     }
@@ -195,7 +221,7 @@ public class MatrixGame {
                 posicionesOcupadas.add(pos);
                 return pos;
             } else {
-                System.out.println("❌ Esa posición ya está ocupada. Intenta otra.");
+                System.out.println("Esa posición ya está ocupada. Intenta otra.");
             }
         }
     }
@@ -212,13 +238,12 @@ public class MatrixGame {
         
         int murosGenerados = 0;
         int intentos = 0;
-        int maxIntentos = 100; // Para evitar bucle infinito
+        int maxIntentos = 100;
         
         while (murosGenerados < cantidadMuros && intentos < maxIntentos) {
             int x = rand.nextInt(TAMANIO);
             int y = rand.nextInt(TAMANIO);
             
-            // Verifica que la posición no esté ocupada
             if (!posicionOcupada(x, y)) {
                 muros.add(new Muro(x, y));
                 System.out.println("  Muro " + (murosGenerados + 1) + " en (" + x + ", " + y + ")");
@@ -233,7 +258,7 @@ public class MatrixGame {
      */
     private void generarAgentesAleatorios() {
         Random rand = new Random();
-        int cantidadAgentes = rand.nextInt(MAX_AGENTES - MIN_AGENTES + 1) + MIN_AGENTES;
+        int cantidadAgentes = 6;
         
         System.out.println("\n=== GENERANDO AGENTES ALEATORIOS ===");
         System.out.println("Cantidad de agentes a generar: " + cantidadAgentes);
@@ -249,7 +274,7 @@ public class MatrixGame {
             if (!posicionOcupada(x, y)) {
                 // Creamos un agente temporal (luego se recreará con las barreras)
                 Agente agente = new Agente(x, y, neo, agentes, muros,
-                                          null, null, lockTablero);
+                                        null, null, lockTablero, null);  // ← null temporal
                 agentes.add(agente);
                 System.out.println("  Agente-" + (agentesGenerados + 1) + " en (" + x + ", " + y + ")");
                 agentesGenerados++;
@@ -262,26 +287,22 @@ public class MatrixGame {
      * Verifica si una posición está ocupada
      */
     private boolean posicionOcupada(int x, int y) {
-        // Verifica Neo
         if (neo != null && neo.getPosX() == x && neo.getPosY() == y) {
             return true;
         }
-        
-        // Verifica teléfonos
+      
         for (Telefono tel : telefonos) {
             if (tel.getPosX() == x && tel.getPosY() == y) {
                 return true;
             }
         }
-        
-        // Verifica muros
+
         for (Muro muro : muros) {
             if (muro.getPosX() == x && muro.getPosY() == y) {
                 return true;
             }
         }
-        
-        // Verifica agentes
+
         for (Agente agente : agentes) {
             if (agente.getPosX() == x && agente.getPosY() == y) {
                 return true;
@@ -312,16 +333,16 @@ public class MatrixGame {
             muro.colocarEnTablero(tablero);
         }
         
-        // Colocar agentes
+        // Colocar Neo PRIMERO (si está vivo)
+        if (neo.isVivo()) {
+            neo.colocarEnTablero(tablero);
+        }
+        
+        // Colocar agentes AL FINAL (para que tengan prioridad visual si capturan a Neo)
         for (Agente agente : agentes) {
             if (agente.isVivo()) {
                 agente.colocarEnTablero(tablero);
             }
-        }
-        
-        // Colocar Neo (al final para que tenga prioridad visual)
-        if (neo.isVivo()) {
-            neo.colocarEnTablero(tablero);
         }
         
         // Imprimir tablero con formato
@@ -366,11 +387,11 @@ public class MatrixGame {
         
         if (neo.isGano()) {
             System.out.println("║                                        ║");
-            System.out.println("║      🎉 ¡NEO ESCAPÓ DE MATRIX! 🎉     ║");
+            System.out.println("║       ¡NEO ESCAPÓ DE MATRIX!      ║");
             System.out.println("║                                        ║");
         } else {
             System.out.println("║                                        ║");
-            System.out.println("║      💀 NEO FUE CAPTURADO 💀          ║");
+            System.out.println("║       NEO FUE CAPTURADO           ║");
             System.out.println("║                                        ║");
         }
         
