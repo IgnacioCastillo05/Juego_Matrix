@@ -6,8 +6,6 @@ import java.util.concurrent.*;
 public class MatrixGame {
     private static final int TAMANIO = 10;
     private static final int MAX_MUROS = 10;
-    private static final int MIN_AGENTES = 2;
-    private static final int MAX_AGENTES = 4;
     
     private char[][] tablero;
     private Neo neo;
