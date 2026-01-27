@@ -115,10 +115,7 @@ public class Neo extends Persona {
                     gano = true;
                     juegoActivo = false;
                     tel.setUsado(true);
-                    System.out.println("\n╔════════════════════════════════╗");
-                    System.out.println("║  ¡NEO HA LLEGADO AL TELÉFONO!  ║");
-                    System.out.println("║       ¡JUEGO GANADO!            ║");
-                    System.out.println("╚════════════════════════════════╝\n");
+                    System.out.println("¡Neo llegó al teléfono en (" + posX + ", " + posY + ") y escapó de Matrix!");
                 }
                 break;
             }

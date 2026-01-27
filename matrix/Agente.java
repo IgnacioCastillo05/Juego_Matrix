@@ -160,10 +160,7 @@ public class Agente extends Persona {
         if (posX == neo.getPosX() && posY == neo.getPosY() && neo.isVivo()) {
             synchronized(lockTablero) {
                 if (neo.isVivo()) {
-                    System.out.println("\n╔════════════════════════════════════╗");
-                    System.out.println("║  ¡" + nombre + " CAPTURÓ A NEO!       ║");
-                    System.out.println("║      ¡JUEGO PERDIDO!                ║");
-                    System.out.println("╚════════════════════════════════════╝\n");
+                    System.out.println("¡" + nombre + "capturó a Neo en (" + posX + ", " + posY + ")!");
                     neo.setVivo(false);
                     neo.setJuegoActivo(false);
                     juegoActivo = false;
