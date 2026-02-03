@@ -18,13 +18,13 @@ public class Neo extends Persona {
     private boolean movimientoCalculado;
     
     public Neo(int posX, int posY, List<Telefono> telefonos, 
-               List<Agente> agentes, List<Muro> muros,  // ← AGREGAR PARÁMETRO
+               List<Agente> agentes, List<Muro> muros,
                CyclicBarrier barreraCalculo,
                CyclicBarrier barreraAplicacion, Object lockTablero) {
         super(posX, posY, 'N', "Neo");
         this.telefonos = telefonos;
         this.agentes = agentes;
-        this.muros = muros;  // ← AGREGAR ESTA LÍNEA
+        this.muros = muros; 
         this.barreraCalculo = barreraCalculo;
         this.barreraAplicacion = barreraAplicacion;
         this.lockTablero = lockTablero;
